@@ -1,0 +1,112 @@
+---
+title: "HIDS 7003 Midterm Project"
+author: "Youngmin Choi"
+date: "2023-10-15"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+```
+
+## Objective / Goal
+
+-   To analyze severe alzheimer's disease (AD) patients against control (normal) group to understand differentially expressed gene (DEG)s.
+
+## Analysis Steps
+
+### 1) Read in Data & Explore Data
+
+-   **Clinical Data (patient group data)**
+
+```{r read in, explore data}
+clinicalData<-read.csv("input/Blalock_clin_final.csv", header=TRUE, sep=",")
+# clinicalData consists of 30 objects with 5 variables
+colnames(clinicalData) # Checked column names (gender, age, disease status, biospecimen ID)
+
+```
+
+-   **Molecular Data (gene expression data)**
+
+```{r}
+geneData<-read.table("input/GSE62232_Blalock_geneexp_final.tsv", header=TRUE, sep="\t", row.names = 1, stringsAsFactors = F)
+head(geneData[,c(2:10)]) # Confirmed if file was imported successfully.
+```
+
+### 2) Clean/Filter Data
+
+* Select and filter only patients who are classified as 'normal' or 'severe AD' from the clinicalData data. 
+* Afterwards, group by DISEASE_STATUS, creating baseline group (control) & comparison group (severe)
+```{r}
+library(dplyr)
+studyGroup<-clinicalData %>% filter (DISEASE_STATUS %in% c('Control','Severe') )
+head(studyGroup) # total 15 objects
+
+controlGroup<-studyGroup %>% filter (DISEASE_STATUS=='Control')
+head(controlGroup) # total 8 objects
+
+comparisonGroup <-studyGroup %>% filter(DISEASE_STATUS=="Severe")
+head(comparisonGroup) # total 7 objects
+
+```
+
+### 3) Identify Groups to be Compared
+
+* From geneData, select data according to the biospecimen IDs filtered from the clnicalData. 
+```{r}
+whichIDs <- which(colnames(geneData) %in% controlGroup$BIOSPECIMEN_ID)
+controlGene <-geneData[ ,whichIDs]
+head(controlGene) # gene expression information from control group (8 variables, 43135 genetic data)
+
+whichIDs_comparison <-which(colnames(geneData) %in% comparisonGroup$BIOSPECIMEN_ID)
+comparisonGene <-geneData[ ,whichIDs_comparison]
+head(comparisonGene) # gene expression information from comparison group (7 variables, 43135 genetic data)
+```
+
+### 4) Final Check
+
+* Final check of data structure
+```{r}
+knitr::kable(head(controlGene[1:5,]))
+knitr::kable(head(comparisonGene[1:5,]))
+```
+
+### 5) Call Function & Operation of T-Test
+
+```{r}
+source("fnTTest.R")
+
+results1 = fnTTest(baseGroup = controlGene, 
+                   compGroup = comparisonGene, 
+                   testName = "TTest_Midtedrm", 
+                   baseGroupName = "Control",
+                   compGroupName =  "SevereAD",
+                   folderName = "output")
+
+```
+
+
+### 6) Future Result Analysis (Gene List Output)
+
+* Further analysis was conducted to sort the top differentiated genes from the list. 
+* The gene list was ordered with lowest p-value data on top of the list, and then filtered to include only those with p-value <=0.01. 
+
+```{r}
+ttestResults <- read.csv(file="output/TTest_Midterm_SeverAD_(Comp).vs._Control_(Base).TTest.csv")
+ttestResultsSorted <- dplyr::arrange(ttestResults, Pvalue)
+
+sortedGene <- which(ttestResultsSorted$Pvalue <= 0.01)
+
+sortedTTestResult <- ttestResultsSorted[sortedGene, ] # 631 objects
+colnames(sortedTTestResult) # check column names if gene list
+#write.csv(x=sortedTTestResult, #file="output/YoungminChoi_Severe_Control_DEGs_before.csv", quote=F,  row.names=FALSE)
+
+# Split gene annotations to include only gene names. 
+geneBefore <- sortedTTestResult$Feature
+split_names <- strsplit(geneBefore, "\\|")
+new_name <- sapply(split_names, function(x) x[2])
+sortedTTestResult$Feature <- new_name
+head(sortedTTestResult) # Changed gene annotations to include only gene names
+
+write.csv(x=sortedTTestResult, file="output/YoungminChoi_Severe_Control_DEGs.csv", quote=F,  row.names=FALSE)
+```

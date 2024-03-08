@@ -1,0 +1,48 @@
+---
+title: "Enrichment Analysis"
+author: "Youngmin Choi"
+date: "2023-10-31"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+```
+
+## Objective / Goal
+
+-   To analyze severe Alzheimer's disease (AD) patients against control (normal) group to understand differentially expressed gene (DEG)s.
+
+## Analysis Steps
+
+### 1) Load Databases for EnrichR Package
+
+```{r}
+library(enrichR)
+library(openxlsx)
+
+dbs <- enrichR::listEnrichrDbs()
+
+dblist <- read.csv(file='input/2023-EnrichR-Databases.txt', header=F, stringsAsFactors = F)
+head(dblist)
+```
+
+### 2) Load Data From DEG Analysis & Confirm Data
+
+```{r}
+sortedTTestResult <- read.csv('output/YoungminChoi_Severe_Control_DEGs.csv')
+head(sortedTTestResult)
+
+```
+
+### 3) Call Function to Run Enrichment & Confirm Output
+
+```{r}
+
+geneListFinal <-sortedTTestResult$Feature
+
+outputFilename <- 'output/YoungminChoi_Severe_Control_EnrichR.xlsx'
+source(file='functionEnrichment.R')
+functionEnrichment(dblist, geneListFinal, outputFilename)
+
+```
